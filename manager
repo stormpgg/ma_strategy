@@ -1,0 +1,64 @@
+#encoding = utf-8
+import tushare as ts
+import pandas as pd
+import numpy as np
+import math
+
+def get_stock_return(code):
+    df = ts.get_hist_data(code, start='2013-01-01', end='2017-11-30')
+    df = df.sort_index(ascending=True)
+    df.loc[:, 'signal']=np.array([0]*len(df))
+    df.loc[:, 'breakup_ma_days']=np.array([0]*len(df))
+    breakup_ma_days = 0
+    for indexs in df.index:
+        if df.loc[indexs, 'close'] >= df.loc[indexs, 'ma20']:
+            breakup_ma_days+=1
+
+        if df.loc[indexs, 'close'] < df.loc[indexs, 'ma20']:
+            #signal设置为-1为卖出信号
+            df.loc[indexs, 'signal'] = -1
+            breakup_ma_days = 0
+
+        if breakup_ma_days >= 5:
+            #signal设置为1为买入信号
+            df.loc[indexs, 'signal'] = 1
+        df.loc[indexs,'breakup_ma_days'] = breakup_ma_days
+
+
+    yesterday_signal = 0
+    today_signal = 0
+    buy_price = 0
+    sell_price = 0
+    cash = 100000
+    stock_value = 0
+    stock_hand_amount = 0
+    for indexs in df.index:
+        today_signal = df.loc[indexs, 'signal']
+        if yesterday_signal == 0 and today_signal == 1:
+            buy_price = df.loc[indexs, 'close']
+            stock_hand_amount = math.floor(cash/(buy_price*100))
+            cash = cash - stock_hand_amount*buy_price*100
+        if yesterday_signal == 1 and today_signal == -1:
+            sell_price = df.loc[indexs, 'close']
+            cash = cash + sell_price*stock_hand_amount*100
+            stock_hand_amount = 0
+        yesterday_signal = today_signal
+
+    if stock_hand_amount != 0:
+        cash = cash + df.iloc[-1]['close']*stock_hand_amount*100
+        stock_hand_amount = 0
+    stock_return = cash/100000-1
+    return stock_return
+
+if __name__ == '__main__':
+    #stock_list = ['002415', '002416']
+    stock_list = ts.get_stock_basics().index
+    fileobj = open('./result.txt', 'w+')
+    for code in stock_list:
+        try:
+            r = get_stock_return(code)
+            fileobj.write('%s,%s\n'%(code,r))
+        except:
+            continue
+
+    fileobj.close()
