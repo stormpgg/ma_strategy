@@ -6,7 +6,7 @@ import pandas as pd
 import numpy as np
 import math
 
-
+#github
 class Strategy(object):
     def __init__(self, code_list, init_cash, starttime, endtime):
         self.starttime = starttime
